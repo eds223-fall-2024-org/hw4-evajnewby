@@ -1,0 +1,12 @@
+---
+title: "Homework 4, Prioritizing Potential Aquaculture"
+author: "Eva Newby"
+format: html
+editor: visual
+---
+## Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html 
+
+```{r}
+
+```
+
