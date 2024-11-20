@@ -6,7 +6,92 @@ editor: visual
 ---
 ## Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html 
 
+Species of choice- Common cuttlefish (Sepia officinalis)
+https://www.sealifebase.ca/summary/Sepia-officinalis.html
+
 ```{r}
+# Load Packages
+
+```
+
+## Prepare Data
+
+```{r}
+# Read in shapefile for the West Coast EEZ
+
+```
+
+```{r}
+# Read in bathymetry raster
+
+```
+
+```{r}
+# Read in SST rasters and combine SST rasters into raster stack
+
+```
+
+```{r}
+# Check CRS' and transform to match
+
+```
+
+## Process data
+
+```{r}
+# Find the mean SST from 2008-2012 (e.g. create single raster of average SST)
+
+```
+
+```{r}
+# Convert average SST from Kelvin to Celsius (hint: subtract by 273.15)
+
+```
+
+```{r}
+# Crop depth raster to match the extent of the SST raster
+
+```
+
+```{r}
+# note: the resolutions of the SST and depth data do not match
+# Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
+
+```
+
+```{r}
+# Check that the depth and SST match in resolution, extent, and coordinate reference system (hint: can the rasters be stacked?)
+
+```
+
+### Find suitable locations
+
+```{r}
+# reclassify SST and depth data into locations that are suitable for oysters (hint: set suitable values to 1 and unsuitable values to 0)
+
+```
+
+```{r}
+# Find locations that satisfy both SST and depth conditions
+# HINT: The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiple the values of the cells, using the lapp() function.
+
+
+```
+
+### Determine the most suitable EEZ
+
+```{r}
+# Select suitable cells within West Coast EEZs
+
+```
+
+```{r}
+# Find area of grid cells
+
+```
+
+```{r}
+# Find the total suitable area within each EEZ (hint: it might be helpful to rasterize the EEZ data)
 
 ```
 
