@@ -3,6 +3,8 @@ title: "Homework 4, Prioritizing Potential Aquaculture"
 author: "Eva Newby"
 format: html
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
 ## Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html 
 
@@ -11,29 +13,51 @@ https://www.sealifebase.ca/summary/Sepia-officinalis.html
 
 ```{r}
 # Load Packages
-
+library(tidyverse)
+library(stars)
+library(tmap)
+library(sf)
+library(here)
+library(terra)
 ```
 
 ## Prepare Data
 
 ```{r}
 # Read in shapefile for the West Coast EEZ
-
+wc_regions <- st_read(here("data", "wc_regions_clean[1].shp"))
 ```
 
 ```{r}
 # Read in bathymetry raster
-
+depth <- terra::rast(here("data", "depth[1].tif"))
 ```
 
 ```{r}
-# Read in SST rasters and combine SST rasters into raster stack
+# Read in SST rasters
+# Create list of all SST .tif files 
+sst_path = here("data")
 
+sst_files <- list.files(sst_path, 
+                        pattern = glob2rx("*average_annual_sst_*.tif$"),
+                        full.names = TRUE)
+# Create a raster stack 
+sst <- terra::rast(sst_files) 
 ```
 
 ```{r}
 # Check CRS' and transform to match
+print(st_crs(depth))
+print(st_crs(wc_regions))
+print(st_crs(sst))
 
+# Transform sst into EPSG:4326
+sst <-project(sst, "EPSG:4326")
+
+# Verify change
+print(st_crs(sst))
+
+st_crs(sst) == st_crs(depth)
 ```
 
 ## Process data
