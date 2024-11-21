@@ -25,12 +25,14 @@ library(terra)
 
 ```{r}
 # Read in shapefile for the West Coast EEZ
-wc_regions <- st_read(here("data", "wc_regions_clean[1].shp"))
+wc_regions <- vect(here("data", "wc_regions_clean[1].shp"))%>%
+  terra::project("EPSG:4326")
 ```
 
 ```{r}
 # Read in bathymetry raster
-depth <- terra::rast(here("data", "depth[1].tif"))
+depth <- terra::rast(here("data", "depth[1].tif"))%>%
+  terra::project("EPSG:4326")
 ```
 
 ```{r}
@@ -42,7 +44,8 @@ sst_files <- list.files(sst_path,
                         pattern = glob2rx("*average_annual_sst_*.tif$"),
                         full.names = TRUE)
 # Create a raster stack 
-sst <- terra::rast(sst_files) 
+sst <- terra::rast(sst_files)%>%
+  terra::project("EPSG:4326")
 ```
 
 ```{r}
@@ -50,42 +53,58 @@ sst <- terra::rast(sst_files)
 print(st_crs(depth))
 print(st_crs(wc_regions))
 print(st_crs(sst))
-
-# Transform sst into EPSG:4326
-sst <-project(sst, "EPSG:4326")
-
-# Verify change
-print(st_crs(sst))
-
-st_crs(sst) == st_crs(depth)
 ```
 
 ## Process data
 
 ```{r}
-# Find the mean SST from 2008-2012 (e.g. create single raster of average SST)
+# View rasters to see what we are working with
+plot(sst)
+plot(wc_regions)
+plot(depth)
+```
 
+```{r}
+# Find the mean SST from 2008-2012 (e.g. create single raster of average SST)
+avg_sst <- mean(sst)
+
+# Plot to check
+plot(avg_sst)
 ```
 
 ```{r}
 # Convert average SST from Kelvin to Celsius (hint: subtract by 273.15)
+avg_sst_c <- avg_sst - 273.15
 
+# Verify update
+avg_sst_c
 ```
 
 ```{r}
 # Crop depth raster to match the extent of the SST raster
+depth <- crop(x = depth, y = avg_sst_c)
 
+# View the plot
+plot(depth)
 ```
 
 ```{r}
 # note: the resolutions of the SST and depth data do not match
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
-
+depth <- resample(depth,
+                  avg_sst_c,
+                  method = "near")
+                  
 ```
 
 ```{r}
 # Check that the depth and SST match in resolution, extent, and coordinate reference system (hint: can the rasters be stacked?)
-
+cat("Do the extents match?",
+    terra::ext(avg_sst_c) == terra::ext(depth),
+    "\nDo the resolutions match?",
+    terra::res(avg_sst_c) == terra::res(depth),
+    "\n Do the CRS' match?",
+    terra::crs(avg_sst_c) == terra::crs(depth))
 ```
 
 ### Find suitable locations
