@@ -111,7 +111,26 @@ cat("Do the extents match?",
 
 ```{r}
 # reclassify SST and depth data into locations that are suitable for oysters (hint: set suitable values to 1 and unsuitable values to 0)
+sst_reclass <- matrix(c(-Inf, 11, 0,
+                        11, 30, 1,
+                        30, Inf, 0),
+                      ncol = 3,
+                      byrow= TRUE)
 
+depth_reclass <- matrix(c(-Inf, 0, 0,
+                        0, 70, 1,
+                        70, Inf, 0),
+                      ncol = 3,
+                      byrow= TRUE)
+```
+
+```{r}
+# Apply matrices to reclassify depth and sst rasters for suitability
+optimal_sst <- classify(avg_sst_c,
+                        rcl = sst_reclass)
+
+optimal_depth <- classify(depth,
+                        rcl = depth_reclass)
 ```
 
 ```{r}
