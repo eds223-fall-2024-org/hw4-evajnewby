@@ -6,10 +6,10 @@ editor: visual
 editor_options: 
   chunk_output_type: console
 ---
-## Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html 
 
-Species of choice- Common cuttlefish (Sepia officinalis)
-https://www.sealifebase.ca/summary/Sepia-officinalis.html
+#### Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html
+
+Species of choice- Common cuttlefish (Sepia officinalis) https://www.sealifebase.ca/summary/Sepia-officinalis.html
 
 ```{r}
 # Load Packages
@@ -107,7 +107,7 @@ cat("Do the extents match?",
     terra::crs(avg_sst_c) == terra::crs(depth))
 ```
 
-### Find suitable locations
+### Find suitable locations for Oysters
 
 ```{r}
 # reclassify SST and depth data into locations that are suitable for oysters (hint: set suitable values to 1 and unsuitable values to 0)
@@ -125,7 +125,7 @@ depth_reclass <- matrix(c(-Inf, 0, 0,
 ```
 
 ```{r}
-# Apply matrices to reclassify depth and sst rasters for suitability
+# Apply matrices to reclassify depth and sst rasters for Oyster suitability
 optimal_sst <- classify(avg_sst_c,
                         rcl = sst_reclass)
 
@@ -135,25 +135,51 @@ optimal_depth <- classify(depth,
 
 ```{r}
 # Find locations that satisfy both SST and depth conditions
-# HINT: The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiple the values of the cells, using the lapp() function.
+# HINT: The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiply the values in each raster cell, using the lapp() function.
 
+optimal_fun <- function(sst, depth) {
+  sst * depth
+    }
 
+optimal_locs <- lapp(c(optimal_sst, optimal_depth), fun = optimal_fun)
+
+# Plot optimal locations
+plot(optimal_locs)
 ```
 
-### Determine the most suitable EEZ
+### Determine the most suitable EEZ for Oysters
 
 ```{r}
-# Select suitable cells within West Coast EEZs
+# Select suitable cells within West Coast EEZs, using `mask()` within cellSize()
 
-```
+optimal_locs_mask <- cellSize(x = optimal_locs, # area of cells
+                              mask = TRUE,
+                              unit = 'km',
+                              transform = TRUE)
 
-```{r}
-# Find area of grid cells
-
+# Plot to view the mask
+plot(optimal_locs_mask)
+  
 ```
 
 ```{r}
 # Find the total suitable area within each EEZ (hint: it might be helpful to rasterize the EEZ data)
 
+# Rasterize wc_regions data
+eez_raster <- rasterize(x = wc_regions,
+                        y = optimal_locs,
+                        field = 'rgn')
+
+# View raster to confirm change
+plot(eez_raster)
 ```
 
+```{r}
+# Total suitable area can be found with zonal function from terra. 
+```
+
+## Now, let's look at the Common cuttlefish (*Sepia officinalis*)
+
+```{r}
+
+```
