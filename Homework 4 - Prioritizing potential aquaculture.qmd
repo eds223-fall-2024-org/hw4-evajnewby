@@ -2,6 +2,9 @@
 title: "Homework 4, Prioritizing Potential Aquaculture"
 author: "Eva Newby"
 format: html
+execute: 
+  warning: false
+  error: false
 editor: visual
 editor_options: 
   chunk_output_type: console
@@ -19,6 +22,7 @@ library(tmap)
 library(sf)
 library(here)
 library(terra)
+library(kableExtra)
 ```
 
 ## Prepare Data
@@ -176,6 +180,84 @@ plot(eez_raster)
 
 ```{r}
 # Total suitable area can be found with zonal function from terra. 
+optimal_locs_total <- zonal(x = optimal_locs_mask,
+                           z = eez_raster,
+                           fun = "sum",
+                           na.rm = TRUE)
+```
+
+```{r}
+# Present outputs in a table
+optimal_order <- optimal_locs_total[order(optimal_locs_total$area, decreasing = TRUE),]
+
+optimal_order %>% 
+  kable(caption = "Total Suitable Area Within Each EEZ")
+```
+
+#### Visualize our results
+```{r}
+plot_1 <- tm_shape()
+```
+
+
+```{r}
+# Visualize results
+# making centroids
+#state_centroids <- st_centroid(west_coast)
+
+# making total suitable area plot
+plot_1 <- ggplot() +
+ # geom_sf(data = west_coast, # plotting base map layer
+ #         fill = "gainsboro") +
+  #geom_sf_text(data = state_centroids, 
+   #            aes(label = stusps), # adding state abbreviations at centroids
+    #           size = 2.5) +
+  geom_sf(data = optimal_locs_total,
+          aes(fill = area)) +
+  scale_fill_distiller(palette = "Blues",
+                       direction = 1) + # reverse default color order
+  coord_sf() + # to follow our coordinate system, not Cartesian
+  ggspatial::annotation_scale(plot_unit = "km",
+                              location = "bl", # bottom left corner
+                              pad_y = unit(0.01, "cm")) +# from function documentation, used to move the bar closer to the y-axis
+                                
+  annotation_north_arrow(
+    location = "tr",
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20")) +
+  # custom theme
+  theme_minimal() +
+  # update axes labels, titles
+  labs(title = "Total Area Suitable for Oyster Aquaculture",
+       subtitle = "by West Coast Exclusive Economic Zones (EEZs)",
+       fill = bquote("Suitable Area (km"^{2}~")" ),
+       x = "Longitude",
+       y = "Latitude") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(hjust = 0.95, vjust = 1,
+                                  family = "Futura",
+                                  face = "bold",
+                                  size = 16),
+        plot.subtitle = element_text(family = "Futura",
+                                     face = "plain",
+                                     size = 10,
+                                     vjust = 0.5),
+        legend.box.margin =  margin(l = 0.5, unit = "cm"),
+        legend.title = element_text(family = "Futura",
+                                    hjust = -1,
+                                    vjust = 0.5), # these arguments don't seem to work on longer titles...
+        legend.title.align = 0.5,
+        # legend.
+        axis.text.x = element_text(angle = 45,
+                                   vjust = 0.75,
+                                   hjust = 0.9),
+        axis.title.x = element_text(vjust = -0.5, family = "Futura"),
+        axis.title.y = element_text(family = "Futura")
+        )
+
+# show plot
+plot_1
 ```
 
 ## Now, let's look at the Common cuttlefish (*Sepia officinalis*)
