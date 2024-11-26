@@ -194,9 +194,18 @@ optimal_order %>%
   kable(caption = "Total Suitable Area Within Each EEZ")
 ```
 
+```{r}
+# Remove unnecessary SpatRasters
+rm()
+```
+
 #### Visualize our results
 ```{r}
-plot_1 <- tm_shape()
+plot_1 <- tm_shape(optimal_locs_mask)+
+  tm_raster(palette = "viridis", title = "")+
+  tm_layout(frame = FALSE, legend.position = c("left", "bottom"))
+
+plot_1
 ```
 
 
@@ -263,5 +272,74 @@ plot_1
 ## Now, let's look at the Common cuttlefish (*Sepia officinalis*)
 
 ```{r}
+# Create a function so we don't need to repeat steps
 
+optimal_map_function <- function(min_temp, max_temp, min_depth, max_depth, species_name) {
+ # ======= Find suitable locations =======
+  
+ # ------ Classification Matrices ------ #
+  # Reclassification matrix for temperature
+    sst_matrix <- matrix(c(-Inf, min_temp, NA, 
+                         min_temp, max_temp, 1, 
+                         max_temp, Inf, NA), 
+                       ncol = 3, 
+                       byrow = TRUE)
+    
+  # Reclassification matrix for depth
+    depth_matrix <- matrix(c(-Inf, min_depth, NA, 
+                           min_depth, max_depth, 1, 
+                           max_depth, Inf, NA), 
+                         ncol = 3, 
+                         byrow = TRUE)
+    
+# ------ Reclassify ----- #
+    optimal_temps <- classify(avg_sst_c, rcl = sst_matrix)
+    
+    optimal_depths <- classify(depth, rcl = depth_matrix)
+    
+  # Create a function to multiply cell values
+  optimal_funcion <- function(sst, depth) {
+    return(sst * depth)
+  }
+    
+  # Apply function to reclassified rasters to find optimal locations  
+  optimal_locs <- lapp(c(optimal_temps, optimal_depths),
+                          fun = optimal_map_function)
+  
+# ====== Calculate suitable area ======
+  # Area of raster cells
+  optimal_locs_mask <- cellSize(x = suitable_locations, 
+                             mask = TRUE, 
+                             unit = "km", 
+                             transform = TRUE) 
+  
+  # rasterize eez data
+  eez_raster <- rasterize(x = wc_regions,
+            y = optimal_locs,
+            field = 'rgn')
+   
+# ------ Find total suitable area ----- #  
+  # Total suitable area within each eez 
+  optimal_locs_total <- zonal(x = optimal_locs_mask,
+                           z = eez_raster,
+                           fun = "sum",
+                           na.rm = TRUE) 
+   
+   
+# ------ Plot ----- #    
+   
+   
+   
+   
+   
+   
+}
 ```
+
+```{r}
+# Testing on the Common cuttlefish ecology data
+optimal_map_function(min_temp = 10, max_temp = 30,
+                   min_depth = 0, max_depth = 50, 
+                   species_name = "Common cuttlefish")
+```
+
