@@ -10,7 +10,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-#### Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html
+Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html
 
 Species of choice- Common cuttlefish (Sepia officinalis) https://www.sealifebase.ca/summary/Sepia-officinalis.html
 
@@ -53,8 +53,18 @@ sst <- terra::rast(sst_files)%>%
 ```
 
 ```{r}
+# Load in basemap shapefile of Western USA
+states <- st_read(here("data", "cb_2018_us_state_20m[1].shp")) %>% 
+  janitor::clean_names()
+
+west_coast <- states %>% 
+  filter(stusps %in% c("WA", "OR", "CA")) %>% 
+  sf::st_transform(crs = st_crs(sst))
+```
+
+```{r}
 # Remove unnecessary data
-rm(sst_files, sst_path)
+rm(sst_files, sst_path, states)
 ```
 
 ```{r}
@@ -62,15 +72,16 @@ rm(sst_files, sst_path)
 print(st_crs(depth))
 print(st_crs(eez))
 print(st_crs(sst))
+print(st_crs(west_coast))
 ```
 
 ## Process data
-
 ```{r}
 # View rasters to see what we are working with
 plot(sst)
 plot(eez)
 plot(depth)
+plot(west_coast)
 ```
 
 ```{r}
@@ -212,10 +223,12 @@ optimal_order %>%
 optimal_eez_total <- left_join(eez, optimal_order, by = 'rgn')
 ```
 
-#### Visualize our results
+#### Visualize our results for Oysters
 
 ```{r}
 total_area_plot <- ggplot()+
+  geom_sf(data = west_coast,
+          fill = 'lightgray')+
   geom_sf(data = optimal_eez_total, aes(fill = area)) +
   scale_fill_distiller(palette = "GnBu",
                        direction = 1) +
@@ -248,23 +261,23 @@ optimal_map_function <- function(min_temp, max_temp, min_depth, max_depth, speci
   
  # ------ Classification Matrices ------ #
   # Reclassification matrix for temperature
-    sst_matrix <- matrix(c(-Inf, min_temp, NA, 
+    sst_reclass <- matrix(c(-Inf, min_temp, NA, 
                          min_temp, max_temp, 1, 
                          max_temp, Inf, NA), 
                        ncol = 3, 
                        byrow = TRUE)
     
   # Reclassification matrix for depth
-    depth_matrix <- matrix(c(-Inf, min_depth, NA, 
+    depth_reclass <- matrix(c(-Inf, min_depth, NA, 
                            min_depth, max_depth, 1, 
                            max_depth, Inf, NA), 
                          ncol = 3, 
                          byrow = TRUE)
     
 # ------ Reclassify ----- #
-    optimal_temps <- classify(avg_sst_c, rcl = sst_matrix)
+    optimal_temps <- classify(avg_sst_c, rcl = sst_reclass)
     
-    optimal_depths <- classify(depth, rcl = depth_matrix)
+    optimal_depths <- classify(depth, rcl = depth_reclass)
     
   # Create a function to multiply cell values
   optimal_funcion <- function(sst, depth) {
@@ -272,35 +285,59 @@ optimal_map_function <- function(min_temp, max_temp, min_depth, max_depth, speci
   }
     
   # Apply function to reclassified rasters to find optimal locations  
-  optimal_locs <- lapp(c(optimal_temps, optimal_depths),
-                          fun = optimal_map_function)
+ optimal_locs_sst_depth <- lapp(c(optimal_sst, optimal_depth), fun = optimal_fun)
   
 # ====== Calculate suitable area ======
   # Area of raster cells
-  optimal_locs_mask <- cellSize(x = suitable_locations, 
-                             mask = TRUE, 
-                             unit = "km", 
-                             transform = TRUE) 
+  optimal_locs_mask <- cellSize(x = optimal_locs_sst_depth, # area of cells
+                              mask = TRUE,
+                              unit = 'km',
+                              transform = TRUE)
   
   # rasterize eez data
-  eez_raster <- rasterize(x = wc_regions,
-            y = optimal_locs,
-            field = 'rgn')
+  eez_raster <- rasterize(x = eez,
+                        y = optimal_locs_mask,
+                        field = 'rgn')
    
 # ------ Find total suitable area ----- #  
   # Total suitable area within each eez 
-  optimal_locs_total <- zonal(x = optimal_locs_mask,
+  optimal_locs_eez <- zonal(x = optimal_locs_mask,
                            z = eez_raster,
                            fun = "sum",
                            na.rm = TRUE) 
-   
+  
+  # Summary table of total areas
+  optimal_order <- optimal_locs_eez[order(optimal_locs_eez$area, decreasing = TRUE),]
+
+optimal_order %>% 
+  kable(caption = "Total Suitable Area Within Each EEZ")
+  
+# ------ Left Join ----- #     
+ optimal_eez_total <- left_join(eez, optimal_order, by = 'rgn')
    
 # ------ Plot ----- #    
    
-   
-   
-   
-   
+   total_area_plot <- ggplot()+
+  geom_sf(data = west_coast,
+          fill = 'lightgray')+
+  geom_sf(data = optimal_eez_total, aes(fill = area)) +
+  scale_fill_distiller(palette = "GnBu",
+                       direction = 1) +
+  coord_sf()+
+  annotation_scale(plot_unit = 'km',
+                   location = 'bl')+
+  annotation_north_arrow(location = "tl",
+                         which_north = "true",
+                         height = unit(0.7, "cm"),
+                         width = unit(0.5, "cm"))+
+  labs(title = paste("Total Suitable Area for", species_name, "Aquaculture along the West Coast"),
+       subtitle = "per Exclusive Economic Zones (EEZ)",
+       x = "Longitude",
+       y = "Latitude",
+       fill = bquote("Suitable Area (km"^{2}~")" ))+
+  theme_classic()
+
+total_area_plot
    
 }
 ```
