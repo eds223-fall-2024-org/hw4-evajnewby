@@ -17,20 +17,20 @@ Species of choice- Common cuttlefish (Sepia officinalis) https://www.sealifebase
 ```{r}
 # Load Packages
 library(tidyverse)
-library(stars)
 library(tmap)
 library(sf)
 library(here)
 library(terra)
 library(kableExtra)
+library(ggspatial)
 ```
 
 ## Prepare Data
 
 ```{r}
 # Read in shapefile for the West Coast EEZ
-wc_regions <- vect(here("data", "wc_regions_clean[1].shp"))%>%
-  terra::project("EPSG:4326")
+eez <- st_read(here("data", "wc_regions_clean[1].shp"))%>%
+  st_transform("EPSG:4326")
 ```
 
 ```{r}
@@ -53,9 +53,14 @@ sst <- terra::rast(sst_files)%>%
 ```
 
 ```{r}
+# Remove unnecessary data
+rm(sst_files, sst_path)
+```
+
+```{r}
 # Check CRS' and transform to match
 print(st_crs(depth))
-print(st_crs(wc_regions))
+print(st_crs(eez))
 print(st_crs(sst))
 ```
 
@@ -64,7 +69,7 @@ print(st_crs(sst))
 ```{r}
 # View rasters to see what we are working with
 plot(sst)
-plot(wc_regions)
+plot(eez)
 plot(depth)
 ```
 
@@ -93,7 +98,11 @@ plot(depth)
 ```
 
 ```{r}
-# note: the resolutions of the SST and depth data do not match
+# Remove unnecessary data
+rm(avg_sst)
+```
+
+```{r}
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
 depth <- resample(depth,
                   avg_sst_c,
@@ -102,7 +111,7 @@ depth <- resample(depth,
 ```
 
 ```{r}
-# Check that the depth and SST match in resolution, extent, and coordinate reference system (hint: can the rasters be stacked?)
+# Check that the depth and SST match in resolution, extent, and coordinate reference system
 cat("Do the extents match?",
     terra::ext(avg_sst_c) == terra::ext(depth),
     "\nDo the resolutions match?",
@@ -114,7 +123,7 @@ cat("Do the extents match?",
 ### Find suitable locations for Oysters
 
 ```{r}
-# reclassify SST and depth data into locations that are suitable for oysters (hint: set suitable values to 1 and unsuitable values to 0)
+# reclassify SST and depth data into locations that are suitable for oysters
 sst_reclass <- matrix(c(-Inf, 11, 0,
                         11, 30, 1,
                         30, Inf, 0),
@@ -138,17 +147,21 @@ optimal_depth <- classify(depth,
 ```
 
 ```{r}
+# Remove unnecessary data
+rm(sst_reclass, depth_reclass)
+```
+
+```{r}
 # Find locations that satisfy both SST and depth conditions
-# HINT: The SST and depth rasters should now identify the suitability of locations as 0 or 1. To find locations that have both suitable temperature and depth, you can use map algebra. One idea is to multiply the values in each raster cell, using the lapp() function.
 
 optimal_fun <- function(sst, depth) {
-  sst * depth
+  sst * depth # Use map algebra multiplication
     }
 
-optimal_locs <- lapp(c(optimal_sst, optimal_depth), fun = optimal_fun)
+optimal_locs_sst_depth <- lapp(c(optimal_sst, optimal_depth), fun = optimal_fun)
 
 # Plot optimal locations
-plot(optimal_locs)
+plot(optimal_locs_sst_depth)
 ```
 
 ### Determine the most suitable EEZ for Oysters
@@ -156,7 +169,7 @@ plot(optimal_locs)
 ```{r}
 # Select suitable cells within West Coast EEZs, using `mask()` within cellSize()
 
-optimal_locs_mask <- cellSize(x = optimal_locs, # area of cells
+optimal_locs_mask <- cellSize(x = optimal_locs_sst_depth, # area of cells
                               mask = TRUE,
                               unit = 'km',
                               transform = TRUE)
@@ -167,11 +180,10 @@ plot(optimal_locs_mask)
 ```
 
 ```{r}
-# Find the total suitable area within each EEZ (hint: it might be helpful to rasterize the EEZ data)
-
+# Find the total suitable area within each EEZ
 # Rasterize wc_regions data
-eez_raster <- rasterize(x = wc_regions,
-                        y = optimal_locs,
+eez_raster <- rasterize(x = eez,
+                        y = optimal_locs_mask,
                         field = 'rgn')
 
 # View raster to confirm change
@@ -180,7 +192,7 @@ plot(eez_raster)
 
 ```{r}
 # Total suitable area can be found with zonal function from terra. 
-optimal_locs_total <- zonal(x = optimal_locs_mask,
+optimal_locs_eez <- zonal(x = optimal_locs_mask,
                            z = eez_raster,
                            fun = "sum",
                            na.rm = TRUE)
@@ -188,86 +200,43 @@ optimal_locs_total <- zonal(x = optimal_locs_mask,
 
 ```{r}
 # Present outputs in a table
-optimal_order <- optimal_locs_total[order(optimal_locs_total$area, decreasing = TRUE),]
+optimal_order <- optimal_locs_eez[order(optimal_locs_eez$area, decreasing = TRUE),]
 
 optimal_order %>% 
   kable(caption = "Total Suitable Area Within Each EEZ")
 ```
 
 ```{r}
-# Remove unnecessary SpatRasters
-rm()
+# To get the total suitable area into a SpatRaster, add the geometry back in the eez data frame using a left join
+
+optimal_eez_total <- left_join(eez, optimal_order, by = 'rgn')
 ```
 
 #### Visualize our results
-```{r}
-plot_1 <- tm_shape(optimal_locs_mask)+
-  tm_raster(palette = "viridis", title = "")+
-  tm_layout(frame = FALSE, legend.position = c("left", "bottom"))
-
-plot_1
-```
-
 
 ```{r}
-# Visualize results
-# making centroids
-#state_centroids <- st_centroid(west_coast)
-
-# making total suitable area plot
-plot_1 <- ggplot() +
- # geom_sf(data = west_coast, # plotting base map layer
- #         fill = "gainsboro") +
-  #geom_sf_text(data = state_centroids, 
-   #            aes(label = stusps), # adding state abbreviations at centroids
-    #           size = 2.5) +
-  geom_sf(data = optimal_locs_total,
-          aes(fill = area)) +
-  scale_fill_distiller(palette = "Blues",
-                       direction = 1) + # reverse default color order
-  coord_sf() + # to follow our coordinate system, not Cartesian
-  ggspatial::annotation_scale(plot_unit = "km",
-                              location = "bl", # bottom left corner
-                              pad_y = unit(0.01, "cm")) +# from function documentation, used to move the bar closer to the y-axis
-                                
-  annotation_north_arrow(
-    location = "tr",
-    style = ggspatial::north_arrow_nautical(
-      fill = c("grey40", "white"),
-      line_col = "grey20")) +
-  # custom theme
-  theme_minimal() +
-  # update axes labels, titles
-  labs(title = "Total Area Suitable for Oyster Aquaculture",
-       subtitle = "by West Coast Exclusive Economic Zones (EEZs)",
-       fill = bquote("Suitable Area (km"^{2}~")" ),
+total_area_plot <- ggplot()+
+  geom_sf(data = optimal_eez_total, aes(fill = area)) +
+  scale_fill_distiller(palette = "GnBu",
+                       direction = 1) +
+  coord_sf()+
+  annotation_scale(plot_unit = 'km',
+                   location = 'bl')+
+  annotation_north_arrow(location = "tl",
+                         which_north = "true",
+                         height = unit(0.7, "cm"),
+                         width = unit(0.5, "cm"))+
+  labs(title = "Total Suitable Area for Oyster Aquaculture along the West Coast",
+       subtitle = "per Exclusive Economic Zones (EEZ)",
        x = "Longitude",
-       y = "Latitude") +
-  theme(plot.title.position = "plot",
-        plot.title = element_text(hjust = 0.95, vjust = 1,
-                                  family = "Futura",
-                                  face = "bold",
-                                  size = 16),
-        plot.subtitle = element_text(family = "Futura",
-                                     face = "plain",
-                                     size = 10,
-                                     vjust = 0.5),
-        legend.box.margin =  margin(l = 0.5, unit = "cm"),
-        legend.title = element_text(family = "Futura",
-                                    hjust = -1,
-                                    vjust = 0.5), # these arguments don't seem to work on longer titles...
-        legend.title.align = 0.5,
-        # legend.
-        axis.text.x = element_text(angle = 45,
-                                   vjust = 0.75,
-                                   hjust = 0.9),
-        axis.title.x = element_text(vjust = -0.5, family = "Futura"),
-        axis.title.y = element_text(family = "Futura")
-        )
+       y = "Latitude",
+       fill = bquote("Suitable Area (km"^{2}~")" ))+
+  theme_classic()
 
-# show plot
-plot_1
+total_area_plot
+
 ```
+
 
 ## Now, let's look at the Common cuttlefish (*Sepia officinalis*)
 
