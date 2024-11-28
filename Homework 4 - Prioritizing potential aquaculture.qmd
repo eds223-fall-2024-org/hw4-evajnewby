@@ -1,5 +1,5 @@
 ---
-title: "Homework 4, Prioritizing Potential Aquaculture"
+title: "Homework 4 EDS 223, Prioritizing Potential Aquaculture"
 author: "Eva Newby"
 format: html
 execute: 
@@ -9,10 +9,15 @@ editor: visual
 editor_options: 
   chunk_output_type: console
 ---
+## Project Description
+The purpose of this assignment is to calculate and display on a map the total suitable area for Oysters per each exclusive economic zone (EEZ) on the west coast of the United States. Additionally, a function will be created and used to display the total suitable area for another species, the common cuttlefish (*Sepia officinalis*).
 
-Link to Homework 4 Description: https://eds-223-geospatial.github.io/assignments/HW4.html
-
-Species of choice- Common cuttlefish (Sepia officinalis) https://www.sealifebase.ca/summary/Sepia-officinalis.html
+## Learning Outcomes 
+- Combining vector/raster data
+- Resampling raster data
+- Masking raster data
+- Map algebra
+- Creating functions
 
 ```{r}
 # Load Packages
@@ -53,7 +58,7 @@ sst <- terra::rast(sst_files)%>%
 ```
 
 ```{r}
-# Load in basemap shapefile of Western USA
+# Load in basemap shapefile of west coast USA
 states <- st_read(here("data", "cb_2018_us_state_20m[1].shp")) %>% 
   janitor::clean_names()
 
@@ -68,11 +73,24 @@ rm(sst_files, sst_path, states)
 ```
 
 ```{r}
-# Check CRS' and transform to match
-print(st_crs(depth))
-print(st_crs(eez))
-print(st_crs(sst))
-print(st_crs(west_coast))
+# Check CRS'
+if (st_crs(depth) == st_crs(west_coast)) {
+  print ("CRS match")
+} else {
+  stop("CRS do not match")
+}
+
+if (st_crs(eez) == st_crs(sst)) {
+  print ("CRS match")
+} else {
+  stop("CRS do not match")
+}
+
+if (st_crs(eez) == st_crs(west_coast)) {
+  print ("CRS match")
+} else {
+  stop("CRS do not match")
+}
 ```
 
 ## Process data
@@ -347,5 +365,21 @@ total_area_plot
 optimal_map_function(min_temp = 10, max_temp = 30,
                    min_depth = 0, max_depth = 50, 
                    species_name = "Common cuttlefish")
+```
+
+## References
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+tribble(~Data, ~ Citation,
+        "Bathymetry/depth", "GEBCO Compilation Group (2022) GEBCO_2022 Grid (doi:10.5285/e0f0bb80-ab44-2739-e053-6c86abc0289c)",
+        "Exclusive Economic Zones (EEZ)", "Marine Regions. EEZ (Exclusive Economic Zones) database. Retrieved November 18, 2024, from https://www.marineregions.org/eez.php",
+        "Sea Surface Temperature (SST)", "National Oceanic and Atmospheric Administration (NOAA). 2018. 5km Sea Surface Temperature Anomaly (SSTA) products. NOAA Coral Reef Watch. Retrieved November 18, 2024, from https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php",
+        "Common cuttlefish information", "SeaLifeBase. Sepia officinalis. SeaLifeBase. Retrieved November 18, 2024, from https://www.sealifebase.ca/summary/Sepia-officinalis.html",
+        "US States Shapefile", "U.S. Census Bureau. . Cartographic boundary files: Time-series and geographic files. Retrieved November 27, 2024, from https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html"
+        
+) %>% 
+  kable()
 ```
 
